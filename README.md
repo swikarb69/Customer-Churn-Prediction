@@ -1,18 +1,17 @@
 <div align="center">
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=32&duration=3000&pause=1000&color=A78BFA&center=true&vCenter=true&width=800&height=70&lines=Customer+Churn+Prediction;Telecom+%7C+ML+%7C+Recall-Optimized)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=32&duration=3000&pause=1000&color=A78BFA&center=true&vCenter=true&width=800&height=70&lines=Customer+Churn+Prediction;Modular+ML+%7C+SMOTE+%7C+Recall-Optimized)](https://git.io/typing-svg)
 
 <img src="https://capsule-render.vercel.app/api?type=rect&height=3&color=gradient&customColorList=12" width="100%"/>
 
-![Python](https://img.shields.io/badge/Python-A78BFA?style=for-the-badge&logo=python&logoColor=white)
-![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-818CF8?style=for-the-badge&logo=scikit-learn&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-C084FC?style=for-the-badge&logo=pandas&logoColor=white)
-![imbalanced-learn](https://img.shields.io/badge/imbalanced--learn-7C3AED?style=for-the-badge&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-A78BFA?style=for-the-badge&logo=python&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.2%2B-818CF8?style=for-the-badge&logo=scikit-learn&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-2.0%2B-7C3AED?style=for-the-badge&logo=xgboost&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-2.0%2B-C084FC?style=for-the-badge&logo=pandas&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-7.0%2B-22C55E?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-818CF8?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Shipped-A78BFA?style=for-the-badge)
 
-> **Predicting which telecom customers will leave — before they do.**
-> Built around maximizing recall on the churn class, because a missed churner costs far more than a false alarm.
+> **Predicting telecom churners before they leave — powered by modular ML architecture, SMOTE resampling, and threshold optimization.**
 
 </div>
 
@@ -20,190 +19,118 @@
 
 ---
 
-## `◈` The Problem
+## `◈` Key Highlights & Benchmarks
 
-Telecom churn datasets are naturally imbalanced — typically **~27% churn rate**. A naive model that always predicts "stays" hits 73% accuracy without learning anything useful. It looks good on paper while failing the retention team entirely.
+| Metric | Baseline (Threshold = 0.50) | Tuned Model (Threshold = 0.26) | Gain |
+|:---|:---:|:---:|:---:|
+| **Churn Recall** | 62.8% | **84.0%** | **+21.2%** |
+| **ROC-AUC Score** | 0.8418 | **0.8418** | High Discrimination |
+| **F1-Score (Churn)** | 0.6088 | **0.6312** | Optimized |
+| **Caught Churners** | 235 / 374 | **314 / 374** | +79 Churners Saved |
 
-```
-Standard accuracy trap:
-  Predict "No Churn" for everyone → 73% accuracy ✓ (but useless)
-
-What actually matters:
-  Did we catch the customers who WILL leave? → Recall on churn class
-```
-
-A missed churner = lost lifetime revenue. An unnecessary retention offer = small coupon cost.
-The asymmetry is obvious. This project is built around that asymmetry.
+> **Business Impact**: Lowering the decision threshold from `0.50` to `0.26` boosts customer churn recall to **84.0%**, identifying **314 out of 374 at-risk customers** for retention outreach.
 
 ---
 
-## `◈` Approach
-
-```python
-strategy = {
-    "problem"    : "Binary classification — Churn vs No Churn",
-    "imbalance"  : "SMOTE applied to training set only (no data leakage)",
-    "model"      : "GradientBoostingClassifier",
-    "objective"  : "Maximize recall on the churn class",
-    "technique"  : "Threshold tuning via predict_proba",
-}
-```
-
-**Why threshold tuning?**
-The default `predict_proba` threshold of `0.5` is arbitrary. By lowering it to `~0.35`, we flag more customers as at-risk — trading some precision for a significant recall gain. This is a deliberate business decision, not a mistake.
-
----
-
-## `◈` Results
-
-<div align="center">
-
-| Metric | Baseline (threshold = 0.50) | Tuned (threshold ≈ 0.35) |
-|:---|:---:|:---:|
-| **Churn Recall** | 0.45 | **0.62** |
-| **Decision Threshold** | 0.50 | ~0.35 |
-| **What it means** | Miss 55% of churners | Catch 62% of churners |
-
-</div>
-
-> Lowering the threshold from `0.50` → `0.35` improved churn recall by **+17 percentage points** — meaning the model now correctly flags 38% more at-risk customers for the retention team to act on.
-
----
-
-## `◈` Pipeline
+## `◈` Architectural Design & Principles
 
 ```
-raw data
-   │
-   ▼
-① Load & Clean
-   ├── TotalCharges: coerce to numeric, fill missing with median
-   └── Drop customerID (no signal)
-   │
-   ▼
-② Feature Engineering
-   ├── One-hot encode all categorical columns (pd.get_dummies)
-   └── Stratified train/test split (80/20)
-   │
-   ▼
-③ Handle Class Imbalance
-   └── SMOTE on training set only → balanced classes, no leakage
-   │
-   ▼
-④ Model Training
-   └── GradientBoostingClassifier
-   │
-   ▼
-⑤ Evaluation
-   ├── Confusion matrix
-   ├── Classification report (precision / recall / F1)
-   └── ROC-AUC score
-   │
-   ▼
-⑥ Threshold Tuning
-   └── predict_proba → sweep thresholds → pick ~0.35 for recall gain
+raw dataset
+    │
+    ▼
+[DataLoader] ───────────► Clean NaNs, coerce types, stratified train/test split
+    │
+    ▼
+[FeatureEngineer] ──────► Generate domain features (tenure_years, service_count, bundles)
+    │
+    ▼
+[ColumnTransformer] ────► Scale numeric features, one-hot encode categoricals (fit on X_train ONLY)
+    │
+    ▼
+[ModelTrainer + SMOTE] ─► Over-sample X_train ONLY, compare RandomForest vs GradientBoosting vs XGBoost
+    │
+    ▼
+[ThresholdOptimizer] ──► Sweep probability thresholds [0.10, 0.90] for max recall/F1
+    │
+    ▼
+[Model Persistence] ───► Save preprocessor.joblib, best_model.joblib, threshold.joblib
 ```
+
+1. **Zero Data Leakage**: Scalers, imputers, categorical encoders, and SMOTE resampling are fit **strictly on training splits (`X_train`)**, ensuring clean evaluation on unseen test data.
+2. **Modular Architecture**: Decoupled modules for configuration (`src/config.py`), data loading (`src/data.py`), feature engineering (`src/features.py`), modeling (`src/models.py`), evaluation (`src/evaluate.py`), and CLI inference (`predict.py`).
+3. **Automated Testing**: 100% passing `pytest` test suite verifying data cleaning, feature outputs, pipeline transformations, model training, and threshold optimization.
 
 ---
 
 ## `◈` Tech Stack
 
-<div align="center">
-
-| Tool | Purpose |
+| Component | Library / Framework |
 |:---|:---|
-| `Python` | Core language |
-| `Pandas` | Data loading, cleaning, feature engineering |
-| `Scikit-Learn` | Model training, evaluation, metrics |
-| `imbalanced-learn` | SMOTE for class imbalance |
-| `NumPy` | Numerical operations |
-
-</div>
+| **Language** | Python 3.10+ |
+| **Data Processing** | Pandas, NumPy |
+| **Machine Learning** | Scikit-Learn, XGBoost, imbalanced-learn (SMOTE) |
+| **Serialization** | Joblib |
+| **Testing** | pytest |
 
 ---
 
-## `◈` Dataset
+## `◈` Quick Start & Usage
 
-**[Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)** — IBM sample dataset
-
-- **7,043** customer records
-- **21** features: demographics, account info, services subscribed
-- **Target:** `Churn` (Yes/No) — ~27% positive class
-
-Place the CSV at `data/Telco-Customer-Churn.csv` before running.
-
----
-
-## `◈` Run It
-
+### 1. Installation
 ```bash
-# Clone the repo
 git clone https://github.com/swikarb69/Customer-Churn-Prediction.git
 cd Customer-Churn-Prediction
-
-# Install dependencies
 pip install -r requirements.txt
+```
 
-# Run the pipeline
+### 2. Run the Full ML Training Pipeline
+```bash
 python main.py
 ```
 
-**Expected output:**
+### 3. Run CLI Inference
+Score a sample customer record:
+```bash
+python predict.py --sample
 ```
-Confusion Matrix
-Accuracy score
-Classification Report (precision / recall / F1 per class)
-Top 10 Feature Importances
-ROC-AUC Score
-Model trained!
+Or batch score a CSV file:
+```bash
+python predict.py --csv data/Telco-Customer-Churn.csv
+```
+
+### 4. Run Automated Unit Tests
+```bash
+pytest tests/ -v
 ```
 
 ---
 
-## `◈` Key Design Decisions
-
-**1. SMOTE on training set only**
-Applying SMOTE before the train/test split would leak synthetic samples into evaluation — inflating metrics. SMOTE is fit and applied only on `X_train`, never touching `X_test`.
-
-**2. Recall over accuracy**
-In a subscription business, the cost matrix is asymmetric:
-- False Negative (miss a churner) → lose the customer entirely
-- False Positive (flag a non-churner) → send an unnecessary retention offer
-
-Optimizing recall directly reflects this business reality.
-
-**3. Threshold tuning over resampling alone**
-SMOTE helps during training. Threshold tuning at inference time gives a second lever to push recall further without retraining — useful for production scenarios where the model is frozen.
-
----
-
-## `◈` Next Steps
-
-- [ ] **XGBoost / LightGBM** — compare against GradientBoosting baseline
-- [ ] **SHAP values** — explain individual predictions for the retention team
-- [ ] **Cost-based threshold optimization** — assign real $ values to FP/FN and find the profit-maximizing threshold
-- [ ] **Feature selection** — remove low-importance features to reduce noise
-- [ ] **Streamlit dashboard** — let a non-technical user input customer data and get churn probability + explanation
-
----
-
-## `◈` Project Structure
+## `◈` Repository Structure
 
 ```
 Customer-Churn-Prediction/
-│
 ├── data/
-│   └── Telco-Customer-Churn.csv     # Dataset (download from Kaggle)
-│
-├── notebooks/                        # Exploratory analysis (optional)
-│
-├── outputs/                          # Saved plots / results
-│
-├── main.py                           # Full ML pipeline
-├── requirements.txt                  # Dependencies
+│   └── Telco-Customer-Churn.csv      # IBM Telco Churn Dataset
+├── src/
+│   ├── __init__.py
+│   ├── config.py                     # Centralized paths, columns & hyperparameters
+│   ├── utils.py                      # Logging and joblib serialization helpers
+│   ├── data.py                       # DataLoader & cleaning pipeline
+│   ├── features.py                   # Domain feature engineering & ColumnTransformer
+│   ├── models.py                     # ModelTrainer with SMOTE & ThresholdOptimizer
+│   └── evaluate.py                   # Evaluation metrics & feature importances
+├── tests/
+│   ├── __init__.py
+│   ├── test_data.py                  # Unit tests for data pipeline
+│   ├── test_features.py              # Unit tests for feature pipeline
+│   └── test_models.py                # Unit tests for ML engine & threshold optimizer
+├── models/                           # Saved trained artifacts (.joblib)
+├── outputs/                          # Batch inference exports
+├── main.py                           # Full pipeline orchestrator
+├── predict.py                        # CLI inference interface
+├── requirements.txt                  # Environment dependencies
 ├── .gitignore
-├── LICENSE
-└── README.md
+└── README.md                         # Documentation
 ```
 
 ---
@@ -216,7 +143,5 @@ Customer-Churn-Prediction/
 
 [![GitHub](https://img.shields.io/badge/GitHub-swikarb69-A78BFA?style=for-the-badge&logo=github&logoColor=white)](https://github.com/swikarb69)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Swikar_Bhattarai-818CF8?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/swikar-bhattarai-11178b240)
-
-*"The universe speaks in patterns. I speak Python."*
 
 </div>
