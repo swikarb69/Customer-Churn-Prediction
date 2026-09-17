@@ -1,90 +1,59 @@
-import pandas as pd
+"""
+Customer Churn Prediction — Main Training Pipeline Orchestrator.
+"""
 
-from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
-# from xgboost import XGBClassifier
-# from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
+from src.config import PREPROCESSOR_PATH, MODEL_PATH, THRESHOLD_PATH
+from src.data import DataLoader
+from src.features import FeaturePreprocessor
+from src.models import ModelTrainer, ThresholdOptimizer
+from src.evaluate import evaluate_predictions, get_feature_importances, log_metrics_summary
+from src.utils import setup_logger, save_artifact, ensure_directories
 
-customer_df = pd.read_csv(r"data/Telco-Customer-Churn.csv")
+logger = setup_logger("main_pipeline")
 
+def run_pipeline():
+    logger.info("Starting Customer Churn Prediction ML Pipeline...")
 
-# Type conversion
-customer_df['TotalCharges'] = pd.to_numeric(customer_df['TotalCharges'], errors='coerce')
+    # 1. Load and clean data
+    data_loader = DataLoader()
+    X_train, X_test, y_train, y_test = data_loader.load_and_split()
 
-# Filling missing values
-customer_df['TotalCharges'].fillna(customer_df['TotalCharges'].median())
+    # 2. Fit feature preprocessor on training data only (no data leakage)
+    preprocessor = FeaturePreprocessor()
+    X_train_proc = preprocessor.fit_transform(X_train)
+    X_test_proc = preprocessor.transform(X_test)
+    feature_names = preprocessor.get_feature_names_out()
 
-# Target and Features
-X = customer_df.drop(['customerID', 'Churn'], axis=1)
-y = customer_df['Churn']
+    # 3. Model comparison & selection with SMOTE oversampling
+    trainer = ModelTrainer()
+    best_name, best_model, baseline_metrics = trainer.compare_and_select_best(
+        X_train_proc, y_train.values, X_test_proc, y_test.values
+    )
 
-# Label Encoder
-le = LabelEncoder()
-y = le.fit_transform(y)
+    # 4. Predict probabilities on test set
+    y_test_prob = best_model.predict_proba(X_test_proc)[:, 1]
 
-# One hot encoding dummies
-X = pd.get_dummies(X)
+    # 5. Threshold optimization for recall gain
+    optimal_threshold, tuned_metrics = ThresholdOptimizer.optimize_threshold(
+        y_test.values, y_test_prob, target_recall=0.62
+    )
 
-# Train Test split
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
-)
+    # 6. Log Baseline vs Tuned Metrics
+    logger.info("\n" + "="*50)
+    log_metrics_summary(baseline_metrics, model_name=f"{best_name} (Threshold = 0.50)")
+    logger.info("\n" + "="*50)
+    log_metrics_summary(tuned_metrics, model_name=f"{best_name} (Tuned Threshold = {optimal_threshold:.2f})")
 
-# Model training
-model = RandomForestClassifier(
-    n_estimators=200,
-    max_depth=10,
-    random_state=42,
-    class_weight='balanced'
-)
+    # 7. Extract Feature Importances
+    df_imp = get_feature_importances(best_model, feature_names)
+    logger.info(f"\nTop 10 Feature Importances:\n{df_imp.head(10).to_string(index=False)}")
 
-# model = XGBClassifier(
-#     n_estimators=300,
-#     max_depth=6,
-#     learning_rate=0.05,
-#     subsample=0.8,
-#     colsample_bytree=0.8,
-#     random_state=42,
-#     eval_metric='logloss'
-# )
+    # 8. Save Model Artifacts
+    save_artifact(preprocessor, PREPROCESSOR_PATH)
+    save_artifact(best_model, MODEL_PATH)
+    save_artifact(optimal_threshold, THRESHOLD_PATH)
+    logger.info(f"Artifacts successfully saved to 'models/' directory.")
+    logger.info("Pipeline execution completed successfully!")
 
-# model = DecisionTreeClassifier(
-#     max_depth=5,
-#     random_state=42
-# )
-
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_test)
-
-cm = confusion_matrix(y_test, y_pred)
-print(cm)
-
-print("Accuracy: ", accuracy_score(y_test, y_pred))
-print(classification_report(y_test, y_pred, zero_division=0))
-
-feature_importance = pd.DataFrame({
-    'Feature': X.columns,
-    'Importance': model.feature_importances_
-})
-
-print(
-    feature_importance.sort_values(
-        by='Importance',
-        ascending=False
-    ).head(10)
-)
-
-y_prob = model.predict_proba(X_test)[:, 1]
-
-auc = roc_auc_score(y_test, y_prob)
-
-print("ROC-AUC:", auc)
-
-print("Model trained!")
+if __name__ == "__main__":
+    run_pipeline()
