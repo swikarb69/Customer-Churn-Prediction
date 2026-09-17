@@ -2,4 +2,10 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 venv/
+.venv/
 .vscode/
+.pytest_cache/
+models/*.joblib
+!models/.gitkeep
+outputs/*.png
+outputs/*.json
